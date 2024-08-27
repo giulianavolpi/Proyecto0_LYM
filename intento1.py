@@ -5,7 +5,7 @@ KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od
 COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves"}
 CONDITIONS = {"isBlocked?", "isFacing?", "zero?", "not"}
 
-# Expresiones regulares para identificar tokens
+# Identificación de tokens
 token_specification = [
     ("NUMBER", r"\d+"),                # Números
     ("ASSIGN", r"="),                  # Asignación
@@ -20,7 +20,7 @@ token_specification = [
     ("MISMATCH", r"."),                # Cualquier otro carácter
 ]
 
-# Compilamos la expresión regular para tokenización
+
 token_regex = "|".join(f"(?P<{pair[0]}>{pair[1]})" for pair in token_specification)
 
 class Lexer:
@@ -49,6 +49,8 @@ class Lexer:
         else:
             raise SyntaxError(f"Expected {token_type}, found {self.current_token[0]} at {self.current_token[1]}")
 
+
+## Hasta aquí Silvia dijo que se puede usar la libreria RE para tokenizar el código
 class Parser:
     def __init__(self, lexer):
         self.lexer = lexer
