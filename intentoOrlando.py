@@ -136,40 +136,40 @@ class Parser:
         if token_value in {"M", "R", "C", "B", "c", "b", "P"}:
             pass       
         elif token_value in {"G"}:
-            self.match("LPAREN")
-            self.match("NUMBER")  # x-coordinate
-            self.match("COMMA")
-            self.match("NUMBER")  # y-coordinate
-            self.match("RPAREN")
+            self.lexer.match("LPAREN")
+            self.lexer.match("NUMBER")  # x-coordinate
+            self.lexer.match("COMMA")
+            self.lexer.match("NUMBER")  # y-coordinate
+            self.lexer.match("RPAREN")
 
         elif token_value in {"turnToMy"}:
-            self.match("LPAREN")
+            self.lexer.match("LPAREN")
             if self.current_token[1] not in {"left", "right", "back"}:
                 raise SyntaxError(f"Invalid direction for turnToMy: {self.current_token[1]}")
-            self.match("ID")
-            self.match("RPAREN")
+            self.lexer.match("ID")
+            self.lexer.match("RPAREN")
 
         elif token_value in {"turnToThe"}:
-            self.match("LPAREN")
+            self.lexer.match("LPAREN")
             if self.current_token[1] not in {"north", "south", "east", "west"}:
                 raise SyntaxError(f"Invalid orientation for turnToThe: {self.current_token[1]}")
-            self.match("ID")
-            self.match("RPAREN")
+            self.lexer.match("ID")
+            self.lexer.match("RPAREN")
 
         elif token_value in {"J", "walk", "jump", "drop", "pick", "grab", "letGo", "pop"}:
-            self.match("LPAREN")
-            self.match("NUMBER")
-            self.match("RPAREN")
+            self.lexer.match("LPAREN")
+            self.lexer.match("NUMBER")
+            self.lexer.match("RPAREN")
 
         elif token_value == "moves":
-            self.match("LPAREN")
+            self.lexer.match("LPAREN")
             while self.current_token[0] != "RPAREN":
                 if self.current_token[1] not in {"forward", "right", "left", "backward"}:
                     raise SyntaxError(f"Invalid direction in moves: {self.current_token[1]}")
-                self.match("ID")
+                self.lexer.match("ID")
                 if self.current_token[0] == "COMMA":
-                    self.match("COMMA")
-            self.match("RPAREN")
+                    self.lexer.match("COMMA")
+            self.lexer.match("RPAREN")
 
         else:
             raise SyntaxError(f"Unknown command: {token_value}")
@@ -203,18 +203,18 @@ class Parser:
     #Procesa la invocación de una macro y verifica que tenga la información correcta
     def macro_invocation(self):
         macro_name = self.current_token[1]
-        self.match("ID")
-        self.match("LPAREN")
+        self.lexer.match("ID")
+        self.lexer.match("LPAREN")
         params = []
         while self.current_token[0] != "RPAREN":
             if self.current_token[0] == "ID":
                 if self.current_token[1] not in self.variables:
                     raise SyntaxError(f"Undefined variable: {self.current_token[1]}")
             params.append(self.current_token[1])
-            self.match("ID" if self.current_token[0].isalpha() else "NUMBER")
+            self.lexer.match("ID" if self.current_token[0].isalpha() else "NUMBER")
             if self.current_token[0] == "COMMA":
-                self.match("COMMA")
-        self.match("RPAREN")
+                self.lexer.match("COMMA")
+        self.lexer.match("RPAREN")
         print(f"Invocando macro {macro_name} con parámetros {params}")
 
     #Procesa una condición que puede ir tanto en condicionales como en ciclos
@@ -230,29 +230,29 @@ class Parser:
         cond = self.current_token[1]
         
         if cond in {"isBlocked?", "isFacing?"}:
-            self.match("ID")
-            self.match("LPAREN")
+            self.lexer.match("ID")
+            self.lexer.match("LPAREN")
             direction_or_orientation = self.current_token[1]
             if cond == "isBlocked?" and direction_or_orientation not in {"left", "right", "front", "back"}:
                 raise SyntaxError(f"Invalid direction in {cond}: {direction_or_orientation}")
             elif cond == "isFacing?" and direction_or_orientation not in {"north", "south", "east", "west"}:
                 raise SyntaxError(f"Invalid orientation in {cond}: {direction_or_orientation}")
-            self.match("ID")
-            self.match("RPAREN")
+            self.lexer.match("ID")
+            self.lexer.match("RPAREN")
         
         elif cond == "zero?":
-            self.match("ID")
-            self.match("LPAREN")
+            self.lexer.match("ID")
+            self.lexer.match("LPAREN")
             if self.current_token[0] != "ID" and self.current_token[0] != "NUMBER":
                 raise SyntaxError(f"Invalid parameter in {cond}: {self.current_token[1]}")
-            self.match("ID" if self.current_token[0] == "ID" else "NUMBER")
-            self.match("RPAREN")
+            self.lexer.match("ID" if self.current_token[0] == "ID" else "NUMBER")
+            self.lexer.match("RPAREN")
         
         elif cond == "not":
-            self.match("ID")
-            self.match("LPAREN")
+            self.lexer.match("ID")
+            self.lexer.match("LPAREN")
             self.parse_condition()
-            self.match("RPAREN")
+            self.lexer.match("RPAREN")
         
         else:
             raise SyntaxError(f"Unknown condition: {cond}")
@@ -317,6 +317,8 @@ lexer = Lexer(code_example)
 parser = Parser(lexer)
 
 resultado = parser.parse()
+
+print(f"Resultado del análisis sintáctico: {resultado}")
 
 print(f"Resultado del análisis sintáctico: {resultado}")
 
