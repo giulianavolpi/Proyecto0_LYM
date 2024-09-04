@@ -115,21 +115,6 @@ class Parser:
 
     #Procesa un comando y verifica que tenga la información correcta según el comando en particular
     def command(self):
-        token_type, token_value = self.lexer.current_token
-        self.lexer.match("ID")
-        if token_type in {"J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop"}:
-            self.lexer.match("LPAREN")
-            self.lexer.match("NUMBER")
-            self.lexer.match("RPAREN")
-        elif token_type == "moves":
-            self.lexer.match("LPAREN")
-            while self.lexer.current_token[0] != "RPAREN":
-                self.lexer.match("ID")
-                if self.lexer.current_token[0] == "COMMA":
-                    self.lexer.match("COMMA")
-            self.lexer.match("RPAREN")
-
-    def command(self):
         token_type, token_value = self.current_token
         self.match("ID")
 
@@ -219,14 +204,6 @@ class Parser:
 
     #Procesa una condición que puede ir tanto en condicionales como en ciclos
     def condition(self):
-        cond = self.lexer.current_token[1]
-        self.lexer.match("ID")
-        self.lexer.match("LPAREN")
-        self.lexer.match("ID")
-        self.lexer.match("RPAREN")
-        print(f"Condición: {cond}")
-
-
         cond = self.current_token[1]
         
         if cond in {"isBlocked?", "isFacing?"}:
@@ -317,8 +294,6 @@ lexer = Lexer(code_example)
 parser = Parser(lexer)
 
 resultado = parser.parse()
-
-print(f"Resultado del análisis sintáctico: {resultado}")
 
 print(f"Resultado del análisis sintáctico: {resultado}")
 
