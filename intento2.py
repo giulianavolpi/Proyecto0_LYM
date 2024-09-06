@@ -1,8 +1,9 @@
 import re
 
 # Palabras clave y tokens del lenguaje
-KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "nop", "safeExe"}
+KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "nop"}
 COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "move", "safeExe"}
+PARAMS = {"left", "right", "forward", "back"}  # Nueva lista para parámetros específicos de movimiento
 CONDITIONS = {"blocked?", "facing?", "zero?", "not"}
 
 # Identificación de tokens
@@ -107,11 +108,29 @@ class Parser:
         self.lexer.match("ID")
         if token_value in COMMANDS:
             self.lexer.match("LPAREN")
-            if self.lexer.current_token[0] == "ID":
-                if self.lexer.current_token[1] not in self.variables:
-                    raise SyntaxError(f"Undefined variable: {self.lexer.current_token[1]}")
-            self.lexer.match("ID")
-            self.lexer.match("RPAREN")
+            if token_value == "safeExe":
+                # Manejar comandos dentro de safeExe
+                inner_command_type, inner_command_value = self.lexer.current_token
+                if inner_command_value in COMMANDS:
+                    self.command()  # Llamada recursiva para manejar comandos internos
+                else:
+                    if self.lexer.current_token[0] == "NUMBER":
+                        self.lexer.match("NUMBER")
+                self.lexer.match("RPAREN")
+            else:
+                # Manejar parámetros para otros comandos
+                params = []
+                while self.lexer.current_token[0] != "RPAREN":
+                    if self.lexer.current_token[0] == "ID":
+                        param_value = self.lexer.current_token[1]
+                        if param_value not in PARAMS and param_value not in self.variables:
+                            raise SyntaxError(f"Undefined variable: {param_value}")
+                        self.lexer.match("ID")
+                    elif self.lexer.current_token[0] == "NUMBER":
+                        self.lexer.match("NUMBER")
+                    if self.lexer.current_token[0] == "COMMA":
+                        self.lexer.match("COMMA")
+                self.lexer.match("RPAREN")
 
     def if_statement(self):
         self.lexer.match("if")
@@ -198,9 +217,8 @@ class Parser:
 code_example = """
 EXEC {
     safeExe (walk(1));
-    moves (left ,left , forward , right , back );
+    moves (left, left, forward, right, back);
  }
-    
 """
 
 lexer = Lexer(code_example)
@@ -208,6 +226,8 @@ parser = Parser(lexer)
 resultado = parser.parse()
 
 print(f"Resultado del análisis sintáctico: {resultado}")
+
+
 
 
 
