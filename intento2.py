@@ -1,9 +1,9 @@
 import re
 
 # Palabras clave y tokens del lenguaje
-KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "nop"}
-COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "move", "safeExe"}
-PARAMS = {"left", "right", "forward", "back"}  # Nueva lista para parámetros específicos de movimiento
+KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "nop", "balloonsHere"}
+COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "move", "safeExe", "balloonsHere"}
+PARAMS = {"left", "right", "forward", "back", "balloonsHere"}  # Lista para parámetros específicos de movimiento
 CONDITIONS = {"blocked?", "facing?", "zero?", "not"}
 
 # Identificación de tokens
@@ -136,10 +136,14 @@ class Parser:
         self.lexer.match("if")
         self.condition()
         self.lexer.match("then")
+        self.lexer.match("LBRACE")
         self.block()
+        self.lexer.match("RBRACE")
         if self.lexer.current_token[0] == "else":
             self.lexer.match("else")
+            self.lexer.match("LBRACE")
             self.block()
+            self.lexer.match("RBRACE")
         self.lexer.match("fi")
 
     def repeat_times(self):
@@ -171,12 +175,20 @@ class Parser:
         print(f"Invocando macro {macro_name} con parámetros {params}")
 
     def condition(self):
-        cond = self.lexer.current_token[1]
-        self.lexer.match("ID")
-        self.lexer.match("LPAREN")
-        self.lexer.match("ID")
-        self.lexer.match("RPAREN")
-        print(f"Condición: {cond}")
+        # Manejar condiciones que pueden incluir 'not' u otros modificadores
+        if self.lexer.current_token[1] == "not":
+            self.lexer.match("ID")  # 'not' se reconoce como ID en este contexto
+        if self.lexer.current_token[1] in CONDITIONS:
+            cond = self.lexer.current_token[1]
+            self.lexer.match("ID")
+            self.lexer.match("LPAREN")
+            # Aceptar parámetros dentro de la condición, como identificadores o valores en PARAMS
+            if self.lexer.current_token[0] == "ID" or self.lexer.current_token[1] in PARAMS:
+                self.lexer.match("ID")
+            self.lexer.match("RPAREN")
+            print(f"Condición: {cond}")
+        else:
+            raise SyntaxError(f"Expected condition, found: {self.lexer.current_token[1]}")
 
     def definition(self):
         self.lexer.match("NEW")
@@ -215,11 +227,14 @@ class Parser:
 
 # Ejemplo de uso:
 code_example = """
-EXEC {
-    safeExe (walk(1));
-    moves (left, left, forward, right, back);
- }
+NEW MACRO grabAll ()
+{ grab ( balloonsHere ) ;
+}
+
+
+ 
 """
+
 
 lexer = Lexer(code_example)
 parser = Parser(lexer)

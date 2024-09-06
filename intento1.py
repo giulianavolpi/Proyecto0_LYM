@@ -209,5 +209,15 @@ resultado = parser.parse()
 
 print(f"Resultado del análisis sintáctico: {resultado}")
 
+### EJEMPLOS
+
+
+"""
+EXEC {
+    safeExe (walk(1));
+    moves (left, left, forward, right, back);
+ }
+"""
+
 
 
