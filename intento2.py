@@ -2,9 +2,10 @@ import re
 
 # Palabras clave y tokens del lenguaje
 KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "nop", "balloonsHere"}
-COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "move", "safeExe", "balloonsHere"}
-PARAMS = {"left", "right", "forward", "back", "balloonsHere"}  # Lista para parámetros específicos de movimiento
-CONDITIONS = {"blocked?", "facing?", "zero?", "not"}
+COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "nop", "move", "safeExe", "balloonsHere"}
+PARAMS = {"left", "right", "forward", "back", "backwards"}  # Lista para parámetros específicos de movimiento
+CONDITIONS = {"isBlocked?", "isFacing?", "zero?", "not"}
+CONSTANTS = {"size", "myX", "myY", "myChips", "myBalloons", "balloonsHere", "chipsHere", "roomForChips"}  # Constantes del robot
 
 # Identificación de tokens
 token_specification = [
@@ -35,7 +36,7 @@ class Lexer:
         for match in re.finditer(token_regex, code):
             token_type = match.lastgroup
             token_value = match.group()
-            if token_type == "ID" and token_value in KEYWORDS:
+            if token_type == "ID" and (token_value in KEYWORDS or token_value in CONSTANTS):
                 token_type = token_value
             if token_type != "SKIP":
                 yield (token_type, token_value)
@@ -119,12 +120,11 @@ class Parser:
                 self.lexer.match("RPAREN")
             else:
                 # Manejar parámetros para otros comandos
-                params = []
                 while self.lexer.current_token[0] != "RPAREN":
                     if self.lexer.current_token[0] == "ID":
                         param_value = self.lexer.current_token[1]
-                        if param_value not in PARAMS and param_value not in self.variables:
-                            raise SyntaxError(f"Undefined variable: {param_value}")
+                        if param_value not in PARAMS and param_value not in self.variables and param_value not in CONSTANTS:
+                            raise SyntaxError(f"Undefined variable or constant: {param_value}")
                         self.lexer.match("ID")
                     elif self.lexer.current_token[0] == "NUMBER":
                         self.lexer.match("NUMBER")
@@ -163,16 +163,14 @@ class Parser:
         macro_name = self.lexer.current_token[1]
         self.lexer.match("ID")
         self.lexer.match("LPAREN")
-        params = []
         while self.lexer.current_token[0] != "RPAREN":
             if self.lexer.current_token[0] == "ID" and self.lexer.current_token[1] not in self.variables:
                 raise SyntaxError(f"Undefined variable: {self.lexer.current_token[1]}")
-            params.append(self.lexer.current_token[1])
             self.lexer.match("ID" if self.lexer.current_token[0] == "ID" else "NUMBER")
             if self.lexer.current_token[0] == "COMMA":
                 self.lexer.match("COMMA")
         self.lexer.match("RPAREN")
-        print(f"Invocando macro {macro_name} con parámetros {params}")
+        print(f"Invocando macro {macro_name}")
 
     def condition(self):
         # Manejar condiciones que pueden incluir 'not' u otros modificadores
@@ -212,35 +210,31 @@ class Parser:
         macro_name = self.lexer.current_token[1]
         self.lexer.match("ID")
         self.lexer.match("LPAREN")
-        params = []
         while self.lexer.current_token[0] != "RPAREN":
-            params.append(self.lexer.current_token[1])
             self.lexer.match("ID")
             if self.lexer.current_token[0] == "COMMA":
                 self.lexer.match("COMMA")
         self.lexer.match("RPAREN")
         self.lexer.match("LBRACE")
-        body = self.block()
-        self.macros[macro_name] = {"params": params, "body": body}
+        self.block()
         self.lexer.match("RBRACE")
-        print(f"Macro {macro_name} definida con parámetros {params}")
+        print(f"Macro {macro_name} definida")
 
 # Ejemplo de uso:
 code_example = """
-NEW MACRO grabAll ()
-{ grab ( balloonsHere ) ;
+EXEC {
+    safeExe (walk(1) ) ;
+    moves ( left , left , forward , right , back ) ;
 }
 
-
- 
 """
-
 
 lexer = Lexer(code_example)
 parser = Parser(lexer)
 resultado = parser.parse()
 
 print(f"Resultado del análisis sintáctico: {resultado}")
+
 
 
 
