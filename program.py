@@ -1,16 +1,18 @@
 import re
 
 # Palabras clave y tokens del lenguaje
-KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "nop", "safeExe"}
-COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "move", "safeExe"}
-CONDITIONS = {"blocked?", "facing?", "zero?", "not"}
+KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "balloonsHere"}
+COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "nop", "move", "safeExe", "balloonsHere"}
+PARAMS = {"left", "right", "forward", "back", "backwards"}  
+CONDITIONS = {"isBlocked", "isFacing", "isZero", "not"}
+CONSTANTS = {"size", "myX", "myY", "myChips", "myBalloons", "balloonsHere", "chipsHere", "roomForChips"}  
 
 # Identificación de tokens
 token_specification = [
     ("NUMBER", r"\d+"),                # Números
     ("ASSIGN", r"="),                  # Asignación
     ("SEMI", r";"),                    # Fin de instrucción
-    ("ID", r"[A-Za-z_]\w*"),           # Identificadores
+    ("ID", r"[A-Za-z0-9?]\w*"),        # Identificadores     
     ("LBRACE", r"{"),                  # Llave izquierda
     ("RBRACE", r"}"),                  # Llave derecha
     ("LPAREN", r"\("),                 # Paréntesis izquierdo
@@ -34,7 +36,7 @@ class Lexer:
         for match in re.finditer(token_regex, code):
             token_type = match.lastgroup
             token_value = match.group()
-            if token_type == "ID" and token_value in KEYWORDS:
+            if token_type == "ID" and (token_value in KEYWORDS or token_value in CONSTANTS):
                 token_type = token_value
             if token_type != "SKIP":
                 yield (token_type, token_value)
@@ -54,6 +56,7 @@ class Parser:
         self.lexer = lexer
         self.variables = {}
         self.macros = {}
+        self.variablesMacros = []
 
     def parse(self):
         try:
@@ -94,7 +97,7 @@ class Parser:
             self.if_statement()
         elif token_type == "rep":
             self.repeat_times()
-        elif token_type == "while":
+        elif token_type == "do":
             self.while_loop()
         elif token_value in self.macros:
             self.macro_invocation()
@@ -104,60 +107,103 @@ class Parser:
 
     def command(self):
         token_type, token_value = self.lexer.current_token
+        if token_value in COMMANDS and token_value == "nop":
+            pass
         self.lexer.match("ID")
-        if token_value in COMMANDS:
+        if token_value in COMMANDS and token_value != "nop":
             self.lexer.match("LPAREN")
-            if self.lexer.current_token[0] == "ID":
-                if self.lexer.current_token[1] not in self.variables:
-                    raise SyntaxError(f"Undefined variable: {self.lexer.current_token[1]}")
-            self.lexer.match("ID")
-            self.lexer.match("RPAREN")
+            if token_value == "safeExe":
+                # Manejar comandos dentro de safeExe
+                inner_command_type, inner_command_value = self.lexer.current_token
+                if inner_command_value in COMMANDS:
+                    self.command()  # Llamada recursiva para manejar comandos internos
+                else:
+                    if self.lexer.current_token[0] == "NUMBER":
+                        self.lexer.match("NUMBER")
+                self.lexer.match("RPAREN")
+            else:
+                # Manejar parámetros para otros comandos
+                while self.lexer.current_token[0] != "RPAREN":
+                    if self.lexer.current_token[0] == "ID":
+                        param_value = self.lexer.current_token[1]
+                        if param_value not in PARAMS and param_value not in self.variables and param_value not in CONSTANTS and param_value not in self.variablesMacros:
+                            raise SyntaxError(f"Undefined variable or constant: {param_value}")
+                        self.lexer.match("ID")
+                        if self.lexer.current_token[0] != "COMMA" and self.lexer.current_token[0] != "RPAREN":
+                            raise SyntaxError(f"Expected comma, found: {self.lexer.current_token[0]}")
+                    elif self.lexer.current_token[0] == "NUMBER":
+                        self.lexer.match("NUMBER")
+                    if self.lexer.current_token[0] == "COMMA":
+                        self.lexer.match("COMMA")
+                self.lexer.match("RPAREN")
 
     def if_statement(self):
         self.lexer.match("if")
+        self.lexer.match("LPAREN")
         self.condition()
+        self.lexer.match("RPAREN")
         self.lexer.match("then")
+        self.lexer.match("LBRACE")
         self.block()
+        self.lexer.match("RBRACE")
         if self.lexer.current_token[0] == "else":
             self.lexer.match("else")
+            self.lexer.match("LBRACE")
             self.block()
+            self.lexer.match("RBRACE")
         self.lexer.match("fi")
 
     def repeat_times(self):
         self.lexer.match("rep")
-        self.lexer.match("NUMBER")
+        if self.lexer.current_token[0]=="NUMBER" or self.lexer.current_token[1] in CONSTANTS:
+            self.lexer.next_token()
         self.lexer.match("times")
+        self.lexer.match("LBRACE")
         self.block()
+        self.lexer.match("RBRACE")
         self.lexer.match("per")
 
     def while_loop(self):
-        self.lexer.match("while")
+        self.lexer.match("do")
+        self.lexer.match("LPAREN")
         self.condition()
+        self.lexer.match("RPAREN")
+        self.lexer.match("LBRACE")
         self.block()
+        self.lexer.match("RBRACE")
         self.lexer.match("od")
 
     def macro_invocation(self):
         macro_name = self.lexer.current_token[1]
         self.lexer.match("ID")
         self.lexer.match("LPAREN")
-        params = []
         while self.lexer.current_token[0] != "RPAREN":
             if self.lexer.current_token[0] == "ID" and self.lexer.current_token[1] not in self.variables:
                 raise SyntaxError(f"Undefined variable: {self.lexer.current_token[1]}")
-            params.append(self.lexer.current_token[1])
             self.lexer.match("ID" if self.lexer.current_token[0] == "ID" else "NUMBER")
             if self.lexer.current_token[0] == "COMMA":
                 self.lexer.match("COMMA")
         self.lexer.match("RPAREN")
-        print(f"Invocando macro {macro_name} con parámetros {params}")
 
     def condition(self):
-        cond = self.lexer.current_token[1]
-        self.lexer.match("ID")
-        self.lexer.match("LPAREN")
-        self.lexer.match("ID")
-        self.lexer.match("RPAREN")
-        print(f"Condición: {cond}")
+        # Manejar condiciones que pueden incluir 'not' u otros modificadores
+        if self.lexer.current_token[1] == "not":
+            self.lexer.match("not")  # 'not' se reconoce como ID en este contexto
+            self.lexer.match("LPAREN")
+            self.condition()
+            self.lexer.match("RPAREN")
+            
+        elif self.lexer.current_token[1] in CONDITIONS and self.lexer.current_token[1] != "not":
+            cond = self.lexer.current_token[1]+"?"
+            self.lexer.match("ID")
+            self.lexer.match("ID") #para procesar "?"
+            self.lexer.match("LPAREN")
+            # Aceptar parámetros dentro de la condición, como identificadores o valores en PARAMS
+            if self.lexer.current_token[0] == "ID" or self.lexer.current_token[1] in PARAMS or self.lexer.current_token[1] in CONSTANTS:
+                self.lexer.next_token()
+            self.lexer.match("RPAREN")
+        else:
+            raise SyntaxError(f"Expected condition, found: {self.lexer.current_token[1]}")
 
     def definition(self):
         self.lexer.match("NEW")
@@ -174,50 +220,45 @@ class Parser:
         var_value = self.lexer.current_token[1]
         self.lexer.match("NUMBER")
         self.variables[var_name] = var_value
-        print(f"Variable {var_name} definida con valor {var_value}")
 
     def macro_definition(self):
         self.lexer.match("MACRO")
         macro_name = self.lexer.current_token[1]
         self.lexer.match("ID")
         self.lexer.match("LPAREN")
-        params = []
+        self.parametros = []
         while self.lexer.current_token[0] != "RPAREN":
-            params.append(self.lexer.current_token[1])
+            self.parametros.append(self.lexer.current_token[1])
+            self.variablesMacros.append(self.lexer.current_token[1])
             self.lexer.match("ID")
+            if self.lexer.current_token[0] != "COMMA" and self.lexer.current_token[0] != "RPAREN":
+                            raise SyntaxError(f"Expected comma, found: {self.lexer.current_token[0]}")
             if self.lexer.current_token[0] == "COMMA":
-                self.lexer.match("COMMA")
+                        self.lexer.match("COMMA")
         self.lexer.match("RPAREN")
+        self.macros[macro_name]=self.parametros
         self.lexer.match("LBRACE")
-        body = self.block()
-        self.macros[macro_name] = {"params": params, "body": body}
+        self.block()
         self.lexer.match("RBRACE")
-        print(f"Macro {macro_name} definida con parámetros {params}")
 
-# Ejemplo de uso:
-code_example = """
-EXEC {
-    safeExe (walk(1));
-    moves (left ,left , forward , right , back );
- }
-    
-"""
-
-lexer = Lexer(code_example)
-parser = Parser(lexer)
-resultado = parser.parse()
-
-print(f"Resultado del análisis sintáctico: {resultado}")
-
-### EJEMPLOS
+# Función para leer y procesar un archivo de texto
+ruta_archivo = 'example.txt'
+def leer_ejemplo(ruta_archivo):
+        with open(ruta_archivo, 'r') as archivo:
+            code = archivo.read()
+            lexer = Lexer(code)
+            parser = Parser(lexer)
+            resultado = parser.parse()
+            print(resultado)
+   
 
 
-"""
-EXEC {
-    safeExe (walk(1));
-    moves (left, left, forward, right, back);
- }
-"""
+# Llamada a la función para leer y procesar
+leer_ejemplo(ruta_archivo)
+
+
+
+
 
 
 
