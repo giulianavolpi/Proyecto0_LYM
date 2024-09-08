@@ -56,6 +56,7 @@ class Parser:
         self.lexer = lexer
         self.variables = {}
         self.macros = {}
+        self.variablesMacros = []
 
     def parse(self):
         try:
@@ -125,7 +126,7 @@ class Parser:
                 while self.lexer.current_token[0] != "RPAREN":
                     if self.lexer.current_token[0] == "ID":
                         param_value = self.lexer.current_token[1]
-                        if param_value not in PARAMS and param_value not in self.variables and param_value not in CONSTANTS:
+                        if param_value not in PARAMS and param_value not in self.variables and param_value not in CONSTANTS and param_value not in self.variablesMacros:
                             raise SyntaxError(f"Undefined variable or constant: {param_value}")
                         self.lexer.match("ID")
                         if self.lexer.current_token[0] != "COMMA" and self.lexer.current_token[0] != "RPAREN":
@@ -183,7 +184,6 @@ class Parser:
             if self.lexer.current_token[0] == "COMMA":
                 self.lexer.match("COMMA")
         self.lexer.match("RPAREN")
-        print(f"Invocando macro {macro_name}")
 
     def condition(self):
         # Manejar condiciones que pueden incluir 'not' u otros modificadores
@@ -202,7 +202,6 @@ class Parser:
             if self.lexer.current_token[0] == "ID" or self.lexer.current_token[1] in PARAMS or self.lexer.current_token[1] in CONSTANTS:
                 self.lexer.next_token()
             self.lexer.match("RPAREN")
-            print(f"Condición: {cond}")
         else:
             raise SyntaxError(f"Expected condition, found: {self.lexer.current_token[1]}")
 
@@ -221,7 +220,6 @@ class Parser:
         var_value = self.lexer.current_token[1]
         self.lexer.match("NUMBER")
         self.variables[var_name] = var_value
-        print(f"Variable {var_name} definida con valor {var_value}")
 
     def macro_definition(self):
         self.lexer.match("MACRO")
@@ -231,6 +229,7 @@ class Parser:
         self.parametros = []
         while self.lexer.current_token[0] != "RPAREN":
             self.parametros.append(self.lexer.current_token[1])
+            self.variablesMacros.append(self.lexer.current_token[1])
             self.lexer.match("ID")
             if self.lexer.current_token[0] != "COMMA" and self.lexer.current_token[0] != "RPAREN":
                             raise SyntaxError(f"Expected comma, found: {self.lexer.current_token[0]}")
@@ -241,18 +240,13 @@ class Parser:
         self.lexer.match("LBRACE")
         self.block()
         self.lexer.match("RBRACE")
-        print(f"Macro {macro_name} definida")
 
 # Ejemplo de uso:
 code_example = """
 
-NEW VAR rotate= 3
-NEW MACRO foo (c, p)
-{	drop(c);
-	letgo(p);
-	walk(rotate);
-}	
-EXEC  { foo (1 ,3) ; }
+NEW MACRO grabAll ()
+{ grab (balloonsHere);
+}
   
 """
 
@@ -266,6 +260,14 @@ EXEC {
  safeExe(walk(1));
  moves(left,left, forward, right, back);
 } 
+
+NEW VAR rotate= 3
+NEW MACRO foo (c, p)
+{	drop(c);
+	letGo(p);
+	walk(rotate);
+}	
+EXEC  { foo (1 ,3) ; }
 
 NEW VAR one= 1
 NEW MACRO  		goend ()
