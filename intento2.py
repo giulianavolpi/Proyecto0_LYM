@@ -1,10 +1,10 @@
 import re
 
 # Palabras clave y tokens del lenguaje
-KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "nop", "balloonsHere"}
+KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "balloonsHere"}
 COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "nop", "move", "safeExe", "balloonsHere"}
 PARAMS = {"left", "right", "forward", "back", "backwards"}  # Lista para parámetros específicos de movimiento
-CONDITIONS = {"isBlocked?", "isFacing?", "zero?", "not"}
+CONDITIONS = {"isBlocked", "isFacing", "isZero", "not"}
 CONSTANTS = {"size", "myX", "myY", "myChips", "myBalloons", "balloonsHere", "chipsHere", "roomForChips"}  # Constantes del robot
 
 # Identificación de tokens
@@ -12,7 +12,7 @@ token_specification = [
     ("NUMBER", r"\d+"),                # Números
     ("ASSIGN", r"="),                  # Asignación
     ("SEMI", r";"),                    # Fin de instrucción
-    ("ID", r"[A-Za-z_]\w*"),           # Identificadores
+    ("ID", r"[A-Za-z0-9?]\w*"),        # Identificadores     
     ("LBRACE", r"{"),                  # Llave izquierda
     ("RBRACE", r"}"),                  # Llave derecha
     ("LPAREN", r"\("),                 # Paréntesis izquierdo
@@ -96,7 +96,7 @@ class Parser:
             self.if_statement()
         elif token_type == "rep":
             self.repeat_times()
-        elif token_type == "while":
+        elif token_type == "do":
             self.while_loop()
         elif token_value in self.macros:
             self.macro_invocation()
@@ -106,8 +106,10 @@ class Parser:
 
     def command(self):
         token_type, token_value = self.lexer.current_token
+        if token_value in COMMANDS and token_value == "nop":
+            pass
         self.lexer.match("ID")
-        if token_value in COMMANDS:
+        if token_value in COMMANDS and token_value != "nop":
             self.lexer.match("LPAREN")
             if token_value == "safeExe":
                 # Manejar comandos dentro de safeExe
@@ -126,6 +128,8 @@ class Parser:
                         if param_value not in PARAMS and param_value not in self.variables and param_value not in CONSTANTS:
                             raise SyntaxError(f"Undefined variable or constant: {param_value}")
                         self.lexer.match("ID")
+                        if self.lexer.current_token[0] != "COMMA" and self.lexer.current_token[0] != "RPAREN":
+                            raise SyntaxError(f"Expected comma, found: {self.lexer.current_token[0]}")
                     elif self.lexer.current_token[0] == "NUMBER":
                         self.lexer.match("NUMBER")
                     if self.lexer.current_token[0] == "COMMA":
@@ -134,7 +138,9 @@ class Parser:
 
     def if_statement(self):
         self.lexer.match("if")
+        self.lexer.match("LPAREN")
         self.condition()
+        self.lexer.match("RPAREN")
         self.lexer.match("then")
         self.lexer.match("LBRACE")
         self.block()
@@ -148,15 +154,22 @@ class Parser:
 
     def repeat_times(self):
         self.lexer.match("rep")
-        self.lexer.match("NUMBER")
+        if self.lexer.current_token[0]=="NUMBER" or self.lexer.current_token[1] in CONSTANTS:
+            self.lexer.next_token()
         self.lexer.match("times")
+        self.lexer.match("LBRACE")
         self.block()
+        self.lexer.match("RBRACE")
         self.lexer.match("per")
 
     def while_loop(self):
-        self.lexer.match("while")
+        self.lexer.match("do")
+        self.lexer.match("LPAREN")
         self.condition()
+        self.lexer.match("RPAREN")
+        self.lexer.match("LBRACE")
         self.block()
+        self.lexer.match("RBRACE")
         self.lexer.match("od")
 
     def macro_invocation(self):
@@ -175,14 +188,19 @@ class Parser:
     def condition(self):
         # Manejar condiciones que pueden incluir 'not' u otros modificadores
         if self.lexer.current_token[1] == "not":
-            self.lexer.match("ID")  # 'not' se reconoce como ID en este contexto
-        if self.lexer.current_token[1] in CONDITIONS:
-            cond = self.lexer.current_token[1]
+            self.lexer.match("not")  # 'not' se reconoce como ID en este contexto
+            self.lexer.match("LPAREN")
+            self.condition()
+            self.lexer.match("RPAREN")
+            
+        elif self.lexer.current_token[1] in CONDITIONS and self.lexer.current_token[1] != "not":
+            cond = self.lexer.current_token[1]+"?"
             self.lexer.match("ID")
+            self.lexer.match("ID") #para procesar "?"
             self.lexer.match("LPAREN")
             # Aceptar parámetros dentro de la condición, como identificadores o valores en PARAMS
-            if self.lexer.current_token[0] == "ID" or self.lexer.current_token[1] in PARAMS:
-                self.lexer.match("ID")
+            if self.lexer.current_token[0] == "ID" or self.lexer.current_token[1] in PARAMS or self.lexer.current_token[1] in CONSTANTS:
+                self.lexer.next_token()
             self.lexer.match("RPAREN")
             print(f"Condición: {cond}")
         else:
@@ -210,11 +228,16 @@ class Parser:
         macro_name = self.lexer.current_token[1]
         self.lexer.match("ID")
         self.lexer.match("LPAREN")
+        self.parametros = []
         while self.lexer.current_token[0] != "RPAREN":
+            self.parametros.append(self.lexer.current_token[1])
             self.lexer.match("ID")
+            if self.lexer.current_token[0] != "COMMA" and self.lexer.current_token[0] != "RPAREN":
+                            raise SyntaxError(f"Expected comma, found: {self.lexer.current_token[0]}")
             if self.lexer.current_token[0] == "COMMA":
-                self.lexer.match("COMMA")
+                        self.lexer.match("COMMA")
         self.lexer.match("RPAREN")
+        self.macros[macro_name]=self.parametros
         self.lexer.match("LBRACE")
         self.block()
         self.lexer.match("RBRACE")
@@ -222,11 +245,50 @@ class Parser:
 
 # Ejemplo de uso:
 code_example = """
-EXEC {
-    safeExe (walk(1) ) ;
-    moves ( left , left , forward , right , back ) ;
+
+NEW VAR rotate= 3
+NEW MACRO foo (c, p)
+{	drop(c);
+	letgo(p);
+	walk(rotate);
+}	
+EXEC  { foo (1 ,3) ; }
+  
+"""
+
+code_hecho = """
+
+EXEC  {	
+if (not(isBlocked?(left))) then  { turnToMy(left); walk(1); } else {nop;}  fi;
 }
 
+EXEC {	
+ safeExe(walk(1));
+ moves(left,left, forward, right, back);
+} 
+
+NEW VAR one= 1
+NEW MACRO  		goend ()
+{
+	if (not (isBlocked?(front)))
+	then  { move(one); goend();  }
+	else  { nop; }
+    fi;
+}
+
+NEW MACRO fill ()
+  { 
+  rep roomForChips times 
+  {  if (not (isZero?(myChips))) then { drop(1);}  else { nop; } fi ;} per ; 
+  }
+  
+  NEW MACRO fill1 ()
+  { 
+  do (not (isZero?(roomForChips)))
+  {  if (not (isZero?(myChips))) then { drop(1);}  else { nop; } fi ;
+  } od ; 
+  }
+  
 """
 
 lexer = Lexer(code_example)
@@ -234,7 +296,6 @@ parser = Parser(lexer)
 resultado = parser.parse()
 
 print(f"Resultado del análisis sintáctico: {resultado}")
-
 
 
 
