@@ -1,11 +1,11 @@
 import re
 
 # Palabras clave y tokens del lenguaje
-KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "balloonsHere"}
-COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "nop", "move", "safeExe", "balloonsHere"}
+KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "balloonsHere", "grabAll"}
+COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "nop", "move", "safeExe", "balloonsHere", "grabAll"}
 PARAMS = {"left", "right", "forward", "back", "backwards"}  
-CONDITIONS = {"isBlocked", "isFacing", "isZero", "not"}
-CONSTANTS = {"size", "myX", "myY", "myChips", "myBalloons", "balloonsHere", "chipsHere", "roomForChips"}  
+CONDITIONS = {"isBlocked", "isFacing", "isZero", "not", "grabAll"}
+CONSTANTS = {"size", "myX", "myY", "myChips", "myBalloons", "balloonsHere", "chipsHere", "roomForChips", "grabAll"}  
 
 # Identificación de tokens
 token_specification = [
