@@ -1,11 +1,11 @@
 import re
 
 # Palabras clave y tokens del lenguaje
-KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "balloonsHere", "grabAll"}
-COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "nop", "move", "safeExe", "balloonsHere", "grabAll"}
+KEYWORDS = {"EXEC", "NEW", "VAR", "MACRO", "if", "then", "else", "fi", "do", "od", "rep", "times", "per", "while", "not", "balloonsHere"}
+COMMANDS = {"M", "R", "C", "B", "c", "b", "P", "J", "G", "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", "grab", "letGo", "pop", "moves", "nop", "move", "safeExe", "balloonsHere"}
 PARAMS = {"left", "right", "forward", "back", "backwards"}  
-CONDITIONS = {"isBlocked", "isFacing", "isZero", "not", "grabAll"}
-CONSTANTS = {"size", "myX", "myY", "myChips", "myBalloons", "balloonsHere", "chipsHere", "roomForChips", "grabAll"}  
+CONDITIONS = {"isBlocked", "isFacing", "isZero", "not"}
+CONSTANTS = {"size", "myX", "myY", "myChips", "myBalloons", "balloonsHere", "chipsHere", "roomForChips"}  
 
 # Identificación de tokens
 token_specification = [
@@ -133,6 +133,8 @@ class Parser:
                             raise SyntaxError(f"Expected comma, found: {self.lexer.current_token[0]}")
                     elif self.lexer.current_token[0] == "NUMBER":
                         self.lexer.match("NUMBER")
+                    elif self.lexer.current_token[0] in CONSTANTS:
+                        self.lexer.next_token()
                     if self.lexer.current_token[0] == "COMMA":
                         self.lexer.match("COMMA")
                 self.lexer.match("RPAREN")
